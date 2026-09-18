@@ -1,9 +1,14 @@
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 
 public class Git {
     public static void main(String[] args) {
         init();
+
+        System.out.println(hashFile("text.md"));
     }
 
     public static void init() {
@@ -27,5 +32,25 @@ public class Git {
         }
 
         System.out.println("Git Repository Created at " + git.getParentFile().getAbsolutePath());
+    }
+
+    public static String hashFile(String filePath) {
+        try {
+            StringBuilder contents = new StringBuilder();
+            FileReader reader = new FileReader(filePath);
+            int c;
+            while ((c = reader.read()) != -1) {
+                contents.append((char) (c));
+            }
+            reader.close();
+
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            md.update(contents.toString().getBytes());
+            return HexFormat.of().formatHex(md.digest());
+        } catch (Exception e) {
+            System.out.println("File could not be hashed");
+            return null;
+        }
+
     }
 }
