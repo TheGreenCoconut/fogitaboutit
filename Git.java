@@ -10,8 +10,8 @@ public class Git {
         init();
 
         // Test files
-        // save("text.md");
-        // save("other.md");
+        save("text.md");
+        save("other.md");
     }
 
     /*
@@ -23,12 +23,17 @@ public class Git {
      */
     public static boolean init() {
         File git = new File("./git/");
+        if (!git.mkdir()) {
+            System.out.println("Git Repository Already Exists");
+            return false;
+        }
+
         File objects = new File("./git/objects/");
         File head = new File("./git/HEAD");
         File index = new File("./git/index");
 
         try {
-            if (!git.mkdir() && !objects.mkdir() && !head.createNewFile() && !index.createNewFile()) {
+            if (!objects.mkdir() || !head.createNewFile() || !index.createNewFile()) {
                 System.out.println("Git Repository Already Exists");
                 return false;
             }
@@ -74,7 +79,12 @@ public class Git {
     public static boolean save(String filePath) {
         try {
             String hash = hashFile(filePath);
-            File blob = new File("./git/objects/" + hash);
+
+            if (!checkSave(filePath, hash)) {
+                return false;
+            }
+
+            File blob = new File("git/objects/" + hash);
             FileReader reader = new FileReader(filePath);
             FileWriter writer = new FileWriter(blob);
             int c;
@@ -96,6 +106,45 @@ public class Git {
             System.out.println("Failed to save changes to file at " + filePath);
             return false;
         }
+    }
+
+    private static boolean checkSave(String filePath, String hash) {
+        try {
+            FileReader index = new FileReader("git/index");
+            int c;
+            StringBuilder path = new StringBuilder();
+            boolean reading = false;
+            while ((c = index.read()) != -1) {
+                if ((char) c == ' ') {
+                    reading = true;
+                    continue;
+                }
+
+                if (reading) {
+                    if ((char) c == '\n') {
+                        reading = false;
+                        if (path.toString().equals(filePath) && new File("git/objects/" + hash).exists()) {
+                            index.close();
+                            return false;
+                        } else {
+                            path.setLength(0);
+                            continue;
+                        }
+                    }
+
+                    path.append((char) c);
+                }
+            }
+            if (reading && path.toString().equals(filePath) && new File("git/objects/" + hash).exists()) {
+                index.close();
+                return false;
+            }
+            index.close();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+
     }
 
     /*
