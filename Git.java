@@ -1,3 +1,4 @@
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -8,17 +9,11 @@ import java.util.HexFormat;
 public class Git {
     public static void main(String[] args) {
         init();
-
-        // Test files
-        save("text.md");
-        save("other.md");
     }
 
     /*
-     * Initializes the repository's necessary files. Creates the git directory with
-     * children
-     * objects/, HEAD and index. Returns true if the repository could be created,
-     * returns false if
+     * Initializes the repository's necessary files. Creates the git directory with children
+     * objects/, HEAD and index. Returns true if the repository could be created, returns false if
      * not or if the current repo already exists
      */
     public static boolean init() {
@@ -47,8 +42,7 @@ public class Git {
     }
 
     /*
-     * Hashes a file based on its contents. Returns a SHA-1 hash unique to this
-     * file's contents.
+     * Hashes a file based on its contents. Returns a SHA-1 hash unique to this file's contents.
      */
     public static String hashFile(String filePath) {
         try {
@@ -71,10 +65,9 @@ public class Git {
     }
 
     /*
-     * Creates a blob file for the given filepath and stores it inside the objects
-     * folder. This blob's name and its corresponding file name is then stored in
-     * index. Returns true if the file could be saved to objects, returns false
-     * otherwise.
+     * Creates a blob file for the given filepath and stores it inside the objects folder. This
+     * blob's name and its corresponding file name is then stored in index. Returns true if the file
+     * could be saved to objects, returns false otherwise.
      */
     public static boolean save(String filePath) {
         try {
@@ -108,65 +101,96 @@ public class Git {
         }
     }
 
+    /*
+     * Checks if the current filepath and hash combination already exists in index to prevent
+     * overwriting. Rewriting changed hashes is handled in getRewriteIndex()
+     */
     private static boolean checkSave(String filePath, String hash) {
         try {
-            FileReader index = new FileReader("git/index");
-            int c;
-            StringBuilder path = new StringBuilder();
-            boolean reading = false;
-            while ((c = index.read()) != -1) {
-                if ((char) c == ' ') {
-                    reading = true;
-                    continue;
+            BufferedReader index = new BufferedReader(new FileReader("git/index"));
+            String str;
+            while ((str = index.readLine()) != null) {
+                if (str.equals(hash + " " + filePath)) {
+                    index.close();
+                    return false;
                 }
-
-                if (reading) {
-                    if ((char) c == '\n') {
-                        reading = false;
-                        if (path.toString().equals(filePath) && new File("git/objects/" + hash).exists()) {
-                            index.close();
-                            return false;
-                        } else {
-                            path.setLength(0);
-                            continue;
-                        }
-                    }
-
-                    path.append((char) c);
-                }
-            }
-            if (reading && path.toString().equals(filePath) && new File("git/objects/" + hash).exists()) {
-                index.close();
-                return false;
             }
             index.close();
             return true;
         } catch (Exception e) {
             return false;
         }
-
     }
 
     /*
-     * Stores a file's hash and its path in the index file. Returns true if
-     * successful, otherwise returns false.
+     * Stores a file's hash and its path in the index file. Returns true if successful, otherwise
+     * returns false.
      */
-
     public static boolean index(String hash, String filePath) {
         try {
-            FileReader reader = new FileReader("./git/index");
-            FileWriter writer = new FileWriter("./git/index", true);
+            BufferedReader reader = new BufferedReader(new FileReader("./git/index"));
 
-            if (reader.read() != -1) {
-                writer.append("\n");
+            StringBuilder contents = new StringBuilder();
+            String str;
+            int currLine = 0;
+            int rewriteLine = getRewriteIndex(hash, filePath);
+
+            while ((str = reader.readLine()) != null) {
+                if (currLine > 0) {
+                    contents.append("\n");
+                }
+
+                if (currLine == rewriteLine) {
+                    contents.append(hash + " " + filePath);
+                } else {
+                    contents.append(str);
+                }
+                currLine++;
             }
             reader.close();
-            writer.append(hash + " " + filePath);
+
+            if (rewriteLine == -1) {
+                if (contents.length() > 0) {
+                    contents.append("\n");
+                }
+                contents.append(hash + " " + filePath);
+            }
+
+            FileWriter writer = new FileWriter("./git/index", false);
+            writer.write(contents.toString());
             writer.close();
 
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    /*
+     * Checks if the current filepath exists but the hash has changed. Returns the line number of
+     * that stale entry, or -1 if no such entry exists.
+     */
+    public static int getRewriteIndex(String hash, String filePath) {
+        try {
+            BufferedReader index = new BufferedReader(new FileReader("git/index"));
+            String str;
+            int i = 0;
+            while ((str = index.readLine()) != null) {
+                int spaceIdx = str.indexOf(' ');
+                if (spaceIdx != -1) {
+                    String currHash = str.substring(0, spaceIdx);
+                    String currPath = str.substring(spaceIdx + 1);
+                    if (currPath.equals(filePath) && !currHash.equals(hash)) {
+                        index.close();
+                        return i;
+                    }
+                }
+                i++;
+            }
+            index.close();
+            return -1;
+        } catch (Exception e) {
+            return -1;
         }
     }
 }
