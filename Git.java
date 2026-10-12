@@ -15,22 +15,21 @@ public class Git {
         init();
         addFile("./tree-test/docs/hello.txt");
 
+
+    }
+
+    public void makeCommit(String dir, String message, String author, String date)
+            throws IOException {
         ArrayList<String> indexList;
-        try {
-            indexList = makeIndexList();
-            String testTreeHash = createTree(indexList, "./tree-test");
-            System.out.println("Tree hash: " + testTreeHash);
-        } catch (IOException e) {
-            System.out.println(e);
-        }
+        indexList = makeIndexList();
+        String testTreeHash = createTree(indexList, dir);
+        System.out.println("Tree hash: " + testTreeHash);
 
-        try {
-            String hashFromIndex = createTreeFromIndex();
-            System.out.println("Root tree hash: " + hashFromIndex);
-        } catch (IOException e) {
-            System.out.println(e);
-        }
 
+        String hashFromIndex = createTreeFromIndex();
+        System.out.println("Root tree hash: " + hashFromIndex);
+
+        var commitEntry = "tree: " + hashFromIndex;
     }
 
 
