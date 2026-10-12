@@ -13,18 +13,17 @@ import java.nio.file.Files;
 public class Git {
     public static void main(String[] args) {
         init();
-        save("Hello.txt");
-        save("test/test.txt");
-        save("Hello.txt");
+        addFile("./tree-test/docs/hello.txt");
 
-        // ArrayList<String> indexList;
-        // try {
-        //     indexList = makeIndexList();
-        //     String testTreeHash = createTree(indexList, "test");
-        //     System.out.println("Tree hash: " + testTreeHash);
-        // } catch (IOException e) {
-        //     System.out.println(e);
-        // }
+        ArrayList<String> indexList;
+        try {
+            indexList = makeIndexList();
+            String testTreeHash = createTree(indexList, "./tree-test");
+            System.out.println("Tree hash: " + testTreeHash);
+        } catch (IOException e) {
+            System.out.println(e);
+        }
+
         try {
             String hashFromIndex = createTreeFromIndex();
             System.out.println("Root tree hash: " + hashFromIndex);
@@ -102,13 +101,13 @@ public class Git {
      * blob's name and its corresponding file name is then stored in index. Returns true if the file
      * could be saved to objects, returns false otherwise.
      */
-    public static boolean save(String filePath) {
+    public static boolean addFile(String filePath) {
         try {
 
             String hash = hashFile(filePath);
-            
 
-            if (!checkSave(filePath, hash)) { 
+
+            if (!checkSave(filePath, hash)) {
                 return false;
             }
 
@@ -124,7 +123,7 @@ public class Git {
             reader.close();
             writer.close();
 
-            if (index(hash, filePath)) { 
+            if (index(hash, filePath)) {
                 return true;
             } else {
                 blob.delete();
@@ -231,7 +230,7 @@ public class Git {
         }
     }
 
-    //Copies index file to make a temporary list
+    // Copies index file to make a temporary list
     public static ArrayList<String> makeIndexList() throws IOException {
         ArrayList<String> indexList = new ArrayList<>();
         for (String line : Files.readAllLines(Paths.get("git/index"))) {
@@ -243,14 +242,15 @@ public class Git {
         return indexList;
     }
 
-    //Creates tree for one directory by going through indexList and finding objects with same parent. Adds all of them to contents, then hashes entire contents. 
+    // Creates tree for one directory by going through indexList and finding objects with same
+    // parent. Adds all of them to contents, then hashes entire contents.
     public static String createTree(ArrayList<String> indexList, String path) {
         StringBuilder contents = new StringBuilder();
 
         for (String line : indexList) {
             String[] parts = line.split(" ", 3);
             String linePath = parts[2];
-            
+
             int lastSlashIndex = linePath.lastIndexOf('/');
             String parent = "";
             String fileName = linePath;
@@ -259,8 +259,9 @@ public class Git {
                 fileName = linePath.substring(lastSlashIndex + 1);
             }
 
-            if (parent.equals(path)) { //Checks if each line in indexList is in parent folder, adds if so
-                if (contents.length() >0) {
+            if (parent.equals(path)) { // Checks if each line in indexList is in parent folder, adds
+                                       // if so
+                if (contents.length() > 0) {
                     contents.append("\n");
                 }
                 contents.append(parts[0] + " " + parts[1] + " " + fileName);
@@ -269,7 +270,8 @@ public class Git {
 
         String fileHash = hashString(contents.toString());
         try {
-            FileWriter writer = new FileWriter("git/objects/" + fileHash); //adds tree to objects folder
+            FileWriter writer = new FileWriter("git/objects/" + fileHash); // adds tree to objects
+                                                                           // folder
             writer.write(contents.toString());
             writer.close();
         } catch (Exception e) {
@@ -278,9 +280,9 @@ public class Git {
         }
 
         return fileHash;
-    }    
+    }
 
-    //gets parent folder of file from path, returns "" if at first level
+    // gets parent folder of file from path, returns "" if at first level
     public static String getParent(String path) {
         int lastSlashIndex = path.lastIndexOf('/');
         if (lastSlashIndex == -1) {
@@ -290,7 +292,7 @@ public class Git {
         }
     }
 
-    //sorts alphabetically 
+    // sorts alphabetically
     public static void sortByPath(ArrayList<String> list) {
         for (int i = 0; i < list.size(); i++) {
             int little = i;
@@ -298,7 +300,7 @@ public class Git {
             for (int j = i + 1; j < list.size(); j++) {
                 String[] partsJ = list.get(j).split(" ", 3);
                 String jPath = partsJ[2];
-                
+
                 String[] partsSmallest = list.get(little).split(" ", 3);
                 String smallestPath = partsSmallest[2];
 
@@ -313,7 +315,7 @@ public class Git {
         }
     }
 
-    //gets folder of deepest entry or returns "" if everything is at same first level
+    // gets folder of deepest entry or returns "" if everything is at same first level
     public static String findDeepestFolder(ArrayList<String> indexList) {
         int numSlashesMax = -1;
         String deepestPath = "";
@@ -324,7 +326,7 @@ public class Git {
 
             int slashCounter = 0;
             for (int i = 0; i < linePath.length(); i++) {
-                if(linePath.charAt(i) == '/') {
+                if (linePath.charAt(i) == '/') {
                     slashCounter++;
                 }
             }
@@ -347,13 +349,13 @@ public class Git {
     public static String collapseList(ArrayList<String> indexList) {
         String folder = findDeepestFolder(indexList);
         String treeHash = createTree(indexList, folder);
-        
-        //if everything on same first level, return just the hash of all those contents
+
+        // if everything on same first level, return just the hash of all those contents
         if (folder.equals("")) {
             return treeHash;
         }
 
-        //copys everything not in the same folder as deepest file to new list
+        // copys everything not in the same folder as deepest file to new list
         ArrayList<String> newList = new ArrayList<>();
         for (String line : indexList) {
             String[] parts = line.split(" ", 3);
@@ -364,11 +366,11 @@ public class Git {
             }
         }
         newList.add("tree " + treeHash + " " + folder);
-        sortByPath(newList); 
+        sortByPath(newList);
 
         return collapseList(newList);
 
     }
-    
-    
+
+
 }
