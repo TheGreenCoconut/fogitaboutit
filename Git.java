@@ -4,6 +4,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.nio.file.Path;
@@ -22,11 +23,11 @@ public class Git {
     // date: Thu Oct 09 11:56:39 PDT 2025
     // message: Add initial project files
 
-    public void makeCommit(String dir, String message, String author, String date)
-            throws IOException {
+    public void commit(String author, String message) throws IOException {
         ArrayList<String> indexList;
         indexList = makeIndexList();
-        String testTreeHash = createTree(indexList, dir);
+        var current_dir = System.getProperty("user.dir");
+        String testTreeHash = createTree(indexList, current_dir);
         System.out.println("Tree hash: " + testTreeHash);
 
 
@@ -39,6 +40,8 @@ public class Git {
         if (parent.size() > 0) {
             parentEntry += parent.get(0);
         }
+
+        var date = LocalDate.now();
 
         var commit = commitEntry + "\n" + parentEntry + "\n" + "author: " + author + "\ndate: "
                 + date + "\nmessage: " + message;
@@ -110,12 +113,16 @@ public class Git {
         }
     }
 
+    public static boolean add(String filePath) {
+        return addFile(filePath);
+    }
+
     /*
      * Creates a blob file for the given filepath and stores it inside the objects folder. This
      * blob's name and its corresponding file name is then stored in index. Returns true if the file
      * could be saved to objects, returns false otherwise.
      */
-    public static boolean addFile(String filePath) {
+    private static boolean addFile(String filePath) {
         try {
 
             String hash = hashFile(filePath);
