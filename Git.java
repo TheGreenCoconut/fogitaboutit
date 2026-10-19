@@ -14,9 +14,13 @@ public class Git {
     public static void main(String[] args) {
         init();
         addFile("./tree-test/docs/hello.txt");
-
-
     }
+
+    // tree: 8c411a89ed6d846f064ed0decdba3a857f0d1667
+    // parent: 2b98fbd4f414b26b612fa50b17879f62733254e6
+    // author: Mr. Theiss
+    // date: Thu Oct 09 11:56:39 PDT 2025
+    // message: Add initial project files
 
     public void makeCommit(String dir, String message, String author, String date)
             throws IOException {
@@ -29,9 +33,20 @@ public class Git {
         String hashFromIndex = createTreeFromIndex();
         System.out.println("Root tree hash: " + hashFromIndex);
 
+        var parentEntry = "tree: ";
         var commitEntry = "tree: " + hashFromIndex;
-    }
+        var parent = Files.readAllLines(Path.of("git/HEAD"));
+        if (parent.size() > 0) {
+            parentEntry += parent.get(0);
+        }
 
+        var commit = commitEntry + "\n" + parentEntry + "\n" + "author: " + author + "\ndate: "
+                + date + "\nmessage: " + message;
+
+        var hash = hashString(commit);
+        Files.write(Path.of("git/objects/" + hash), commit.getBytes());
+        Files.writeString(Path.of("git/HEAD"), hash);
+    }
 
     /*
      * Initializes the repository's necessary files. Creates the git directory with children
