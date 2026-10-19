@@ -7,6 +7,7 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import javax.lang.model.element.UnknownElementException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
@@ -23,7 +24,21 @@ public class Git {
     // date: Thu Oct 09 11:56:39 PDT 2025
     // message: Add initial project files
 
-    public void commit(String author, String message) throws IOException {
+    public static void checkout(String commitHash) throws IOException {
+        var commitLines = Files.readAllLines(Path.of("git/objects/" + commitHash));
+        if (commitLines.size() == 0)
+            throw new IOException();
+
+        var treeHash = commitLines.get(0).split(" ")[1];
+        var treeIndex = Files.readAllLines(Path.of("git/objects/" + treeHash));
+    }
+
+    // rebuilds file tree from index file for checking out commits
+    void buildFromIndex(String index) {
+        
+    }
+
+    public static String commit(String author, String message) throws IOException {
         ArrayList<String> indexList;
         indexList = makeIndexList();
         var current_dir = System.getProperty("user.dir");
@@ -49,7 +64,9 @@ public class Git {
         var hash = hashString(commit);
         Files.write(Path.of("git/objects/" + hash), commit.getBytes());
         Files.writeString(Path.of("git/HEAD"), hash);
+        return hash;
     }
+
 
     /*
      * Initializes the repository's necessary files. Creates the git directory with children
@@ -113,8 +130,8 @@ public class Git {
         }
     }
 
-    public static boolean add(String filePath) {
-        return addFile(filePath);
+    public static void add(String filePath) {
+        addFile(filePath);
     }
 
     /*
