@@ -31,11 +31,28 @@ public class Git {
 
         var treeHash = commitLines.get(0).split(" ")[1];
         var treeIndex = Files.readAllLines(Path.of("git/objects/" + treeHash));
+        var current_dir = System.getProperty("user.dir");
+
+        buildFromIndex(treeIndex.get(0).split(" ")[1], current_dir);
     }
 
     // rebuilds file tree from index file for checking out commits
-    void buildFromIndex(String index) {
-        
+    private static void buildFromIndex(String treeHash, String currentDir) throws IOException {
+        var lines = Files.readAllLines(Path.of("git/objects/" + treeHash));
+
+        for (var line : lines) {
+            var entry = line.split(" ");
+            switch (entry[0]) {
+                case "blob":
+                    Files.write(Path.of(currentDir + entry[2]),
+                            Files.readAllBytes(Path.of("git/objects/" + entry[1])));
+                    break;
+                case "tree":
+                    Files.createDirectory(Path.of(entry[2]));
+                    buildFromIndex(entry[1], currentDir + entry[2] + "/");
+                    break;
+            }
+        }
     }
 
     public static String commit(String author, String message) throws IOException {
@@ -44,7 +61,6 @@ public class Git {
         var current_dir = System.getProperty("user.dir");
         String testTreeHash = createTree(indexList, current_dir);
         System.out.println("Tree hash: " + testTreeHash);
-
 
         String hashFromIndex = createTreeFromIndex();
         System.out.println("Root tree hash: " + hashFromIndex);
@@ -67,10 +83,11 @@ public class Git {
         return hash;
     }
 
-
     /*
-     * Initializes the repository's necessary files. Creates the git directory with children
-     * objects/, HEAD and index. Returns true if the repository could be created, returns false if
+     * Initializes the repository's necessary files. Creates the git directory with
+     * children
+     * objects/, HEAD and index. Returns true if the repository could be created,
+     * returns false if
      * not or if the current repo already exists
      */
     public static boolean init() {
@@ -99,7 +116,8 @@ public class Git {
     }
 
     /*
-     * Hashes a file based on its contents. Returns a SHA-1 hash unique to this file's contents.
+     * Hashes a file based on its contents. Returns a SHA-1 hash unique to this
+     * file's contents.
      */
     public static String hashFile(String filePath) {
         try {
@@ -135,15 +153,16 @@ public class Git {
     }
 
     /*
-     * Creates a blob file for the given filepath and stores it inside the objects folder. This
-     * blob's name and its corresponding file name is then stored in index. Returns true if the file
+     * Creates a blob file for the given filepath and stores it inside the objects
+     * folder. This
+     * blob's name and its corresponding file name is then stored in index. Returns
+     * true if the file
      * could be saved to objects, returns false otherwise.
      */
     private static boolean addFile(String filePath) {
         try {
 
             String hash = hashFile(filePath);
-
 
             if (!checkSave(filePath, hash)) {
                 return false;
@@ -153,7 +172,6 @@ public class Git {
             FileReader reader = new FileReader(filePath);
             FileWriter writer = new FileWriter(blob);
             int c;
-
 
             while ((c = reader.read()) != -1) {
                 writer.append((char) (c));
@@ -176,7 +194,8 @@ public class Git {
     }
 
     /*
-     * Checks if the current filepath and hash combination already exists in index to prevent
+     * Checks if the current filepath and hash combination already exists in index
+     * to prevent
      * overwriting. Rewriting changed hashes is handled in getRewriteIndex()
      */
     private static boolean checkSave(String filePath, String hash) {
@@ -197,7 +216,8 @@ public class Git {
     }
 
     /*
-     * Stores a file's hash and its path in the index file. Returns true if successful, otherwise
+     * Stores a file's hash and its path in the index file. Returns true if
+     * successful, otherwise
      * returns false.
      */
     public static boolean index(String hash, String filePath) {
@@ -241,7 +261,8 @@ public class Git {
     }
 
     /*
-     * Checks if the current filepath exists but the hash has changed. Returns the line number of
+     * Checks if the current filepath exists but the hash has changed. Returns the
+     * line number of
      * that stale entry, or -1 if no such entry exists.
      */
     public static int getRewriteIndex(String hash, String filePath) {
@@ -280,7 +301,8 @@ public class Git {
         return indexList;
     }
 
-    // Creates tree for one directory by going through indexList and finding objects with same
+    // Creates tree for one directory by going through indexList and finding objects
+    // with same
     // parent. Adds all of them to contents, then hashes entire contents.
     public static String createTree(ArrayList<String> indexList, String path) {
         StringBuilder contents = new StringBuilder();
@@ -353,7 +375,8 @@ public class Git {
         }
     }
 
-    // gets folder of deepest entry or returns "" if everything is at same first level
+    // gets folder of deepest entry or returns "" if everything is at same first
+    // level
     public static String findDeepestFolder(ArrayList<String> indexList) {
         int numSlashesMax = -1;
         String deepestPath = "";
@@ -377,7 +400,6 @@ public class Git {
 
         return getParent(deepestPath);
     }
-
 
     public static String createTreeFromIndex() throws IOException {
         ArrayList<String> indexList = makeIndexList();
@@ -409,6 +431,5 @@ public class Git {
         return collapseList(newList);
 
     }
-
 
 }
