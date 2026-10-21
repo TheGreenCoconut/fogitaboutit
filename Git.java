@@ -78,6 +78,7 @@ public class Git {
         var hash = hashString(commit);
         Files.write(Path.of("git/objects/" + hash), commit.getBytes());
         Files.writeString(Path.of("git/HEAD"), hash);
+        Files.writeString(Path.of("git/index"), "");
         return hash;
     }
 
