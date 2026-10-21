@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import javax.lang.model.element.UnknownElementException;
 import java.nio.file.Path;
@@ -32,6 +33,11 @@ public class Git {
         var treeHash = commitLines.get(0).split(" ")[1];
         var treeIndex = Files.readAllLines(Path.of("git/objects/" + treeHash));
 
+        var trackedFiles = trackedFiles();
+        for (var file : trackedFiles) {
+            Files.deleteIfExists(file);
+        }
+
         buildFromIndex(treeIndex.get(0).split(" ")[1], "");
     }
 
@@ -47,8 +53,38 @@ public class Git {
                             Files.readAllBytes(Path.of("git/objects/" + entry[1])));
                     break;
                 case "tree":
-                    Files.createDirectory(Path.of(entry[2]));
+                    Files.createDirectories(Path.of(entry[2]));
                     buildFromIndex(entry[1], currentDir + entry[2] + "/");
+                    break;
+            }
+        }
+    }
+
+    // goes throguh HEAD and returns a hashset of files that are inside the commit
+    // so we know if we need to delete a file or not and that kind of stuff
+    private static HashSet<Path> trackedFiles() throws IOException {
+        var files = new HashSet<Path>();
+        var recent = Files.readAllLines(Path.of("git/HEAD"));
+        if (recent.isEmpty())
+            throw new IOException();
+        var lastCommitHash = recent.get(0);
+        goThroughCommitToMakeMapOfTrackedFiles(lastCommitHash, lastCommitHash, files);
+        return files;
+    }
+
+    // goes through commit to make map of tracked files
+    private static void goThroughCommitToMakeMapOfTrackedFiles(String treeHash, String currentDir, HashSet<Path> files)
+            throws IOException {
+        var lines = Files.readAllLines(Path.of("git/objects/" + treeHash));
+        for (var line : lines) {
+            var entry = line.split(" ");
+            switch (entry[0]) {
+                case "blob":
+                    files.add(Path.of(currentDir + entry[2]));
+                    break;
+                case "tree":
+                    // files.add(Path.of(currentDir + entry[2] + "/"));
+                    goThroughCommitToMakeMapOfTrackedFiles(entry[1], currentDir + entry[2] + "/", files);
                     break;
             }
         }
