@@ -13,9 +13,9 @@ import java.nio.file.Paths;
 import java.nio.file.Files;
 
 public class Git {
-    public static void main(String[] args) {
-        init();
-        addFile("./tree-test/docs/hello.txt");
+    public static void main(String[] args) throws IOException {
+        var commit = commit("Dariush", "Commit");
+        checkout(commit);
     }
 
     // tree: 8c411a89ed6d846f064ed0decdba3a857f0d1667
@@ -31,9 +31,8 @@ public class Git {
 
         var treeHash = commitLines.get(0).split(" ")[1];
         var treeIndex = Files.readAllLines(Path.of("git/objects/" + treeHash));
-        var current_dir = System.getProperty("user.dir");
 
-        buildFromIndex(treeIndex.get(0).split(" ")[1], current_dir);
+        buildFromIndex(treeIndex.get(0).split(" ")[1], "");
     }
 
     // rebuilds file tree from index file for checking out commits
@@ -58,14 +57,13 @@ public class Git {
     public static String commit(String author, String message) throws IOException {
         ArrayList<String> indexList;
         indexList = makeIndexList();
-        var current_dir = System.getProperty("user.dir");
-        String testTreeHash = createTree(indexList, current_dir);
-        System.out.println("Tree hash: " + testTreeHash);
+        String testTreeHash = createTree(indexList, "");
+        // System.out.println("Tree hash: " + testTreeHash);
 
         String hashFromIndex = createTreeFromIndex();
-        System.out.println("Root tree hash: " + hashFromIndex);
+        // System.out.println("Root tree hash: " + hashFromIndex);
 
-        var parentEntry = "tree: ";
+        var parentEntry = "parent: ";
         var commitEntry = "tree: " + hashFromIndex;
         var parent = Files.readAllLines(Path.of("git/HEAD"));
         if (parent.size() > 0) {
