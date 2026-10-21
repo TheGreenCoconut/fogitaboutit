@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -8,16 +9,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
-import javax.lang.model.element.UnknownElementException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 
 public class Git {
-    public static void main(String[] args) throws IOException {
-        var commit = commit("Dariush", "Commit");
-        checkout(commit);
-    }
 
     // tree: 8c411a89ed6d846f064ed0decdba3a857f0d1667
     // parent: 2b98fbd4f414b26b612fa50b17879f62733254e6
@@ -31,14 +27,17 @@ public class Git {
             throw new IOException();
 
         var treeHash = commitLines.get(0).split(" ")[1];
-        var treeIndex = Files.readAllLines(Path.of("git/objects/" + treeHash));
 
         var trackedFiles = trackedFiles();
         for (var file : trackedFiles) {
             Files.deleteIfExists(file);
         }
 
-        buildFromIndex(treeIndex.get(0).split(" ")[1], "");
+        buildFromIndex(treeHash, "");
+
+        regenerateIndex(commitHash);
+
+        Files.write(Path.of("git/HEAD"), commitHash.getBytes());
     }
 
     // rebuilds file tree from index file for checking out commits
@@ -53,7 +52,7 @@ public class Git {
                             Files.readAllBytes(Path.of("git/objects/" + entry[1])));
                     break;
                 case "tree":
-                    Files.createDirectories(Path.of(entry[2]));
+                    Files.createDirectories(Path.of(currentDir + entry[2]));
                     buildFromIndex(entry[1], currentDir + entry[2] + "/");
                     break;
             }
@@ -64,11 +63,17 @@ public class Git {
     // so we know if we need to delete a file or not and that kind of stuff
     private static HashSet<Path> trackedFiles() throws IOException {
         var files = new HashSet<Path>();
-        var recent = Files.readAllLines(Path.of("git/HEAD"));
-        if (recent.isEmpty())
+        var head = Files.readAllLines(Path.of("git/HEAD"));
+        if (head.isEmpty()) {
             throw new IOException();
-        var lastCommitHash = recent.get(0);
-        goThroughCommitToMakeMapOfTrackedFiles(lastCommitHash, lastCommitHash, files);
+        }
+
+        var commitLines = Files.readAllLines(
+                Path.of("git/objects/" + head.get(0)));
+        if (commitLines.isEmpty()) {
+            throw new IOException();
+        }
+        goThroughCommitToMakeMapOfTrackedFiles(commitLines.get(0).split(" ")[1], "", files);
         return files;
     }
 
@@ -90,6 +95,73 @@ public class Git {
         }
     }
 
+    /*
+     * After a clone or a checkout, Git throws the old index away and writes a new
+     * one from a commit's tree. Uses recursiveFileList() to iterate through the
+     * repository's tree and assemble the list of fiels in the index.
+     */
+    public static void regenerateIndex(String commitHash) throws IOException {
+
+        File commitFile = new File("git/objects/" + commitHash);
+        BufferedReader commitReader = new BufferedReader(new FileReader(commitFile));
+        String rootTree = commitReader.readLine().split(" ")[1];
+        commitReader.close();
+
+        File index = new File("git/INDEX");
+        BufferedWriter indexWriter = new BufferedWriter(new FileWriter(index));
+
+        StringBuilder fileList = recursiveFileList(rootTree, "");
+        indexWriter.write(fileList.toString());
+        indexWriter.close();
+    }
+
+    /*
+     * Recursively searches for files and returns them as a StringBuilder object for
+     * regenerateIndex() to process. Beginning with the tree hash stored in the
+     * commit, if a line represents a tree, that directory is opened with the same
+     * method. If a line represents a file, that file's hash and path (tracked
+     * through recursive calls) are appended to the StringBuilder and returned.
+     */
+    public static StringBuilder recursiveFileList(String currentTree, String currentPath) throws IOException {
+        StringBuilder index = new StringBuilder();
+        BufferedReader fileReader = new BufferedReader(new FileReader(new File("git/objects/" + currentTree)));
+        String blob;
+        while ((blob = fileReader.readLine()) != null) {
+            String[] lineParts = blob.split(" ");
+
+            String entry;
+            if (lineParts[0].equals("tree")) {
+                if (currentPath.equals("")) {
+                    entry = recursiveFileList(lineParts[1], lineParts[2]).toString();
+                } else {
+                    entry = recursiveFileList(lineParts[1], currentPath + "/" + lineParts[2]).toString();
+                }
+
+            } else if (lineParts[0].equals("blob")) {
+                if (currentPath.equals("")) {
+                    entry = lineParts[1] + " " + lineParts[2];
+                } else {
+                    entry = lineParts[1] + " " + currentPath + "/" + lineParts[2];
+                }
+            } else {
+                System.out.println("Error occured, reached file " + currentPath);
+                continue;
+            }
+
+            if (entry.isEmpty()) {
+                continue;
+            }
+            if (index.length() > 0) {
+                index.append("\n");
+            }
+
+            index.append(entry);
+        }
+        fileReader.close();
+
+        return index;
+    }
+
     public static String commit(String author, String message) throws IOException {
         ArrayList<String> indexList;
         indexList = makeIndexList();
@@ -104,17 +176,24 @@ public class Git {
         var parent = Files.readAllLines(Path.of("git/HEAD"));
         if (parent.size() > 0) {
             parentEntry += parent.get(0);
+        } else {
+            parentEntry = null;
         }
 
         var date = LocalDate.now();
+        String commit;
 
-        var commit = commitEntry + "\n" + parentEntry + "\n" + "author: " + author + "\ndate: "
-                + date + "\nmessage: " + message;
+        if (parentEntry == null){
+            commit = commitEntry + "\n" + "author: " + author + "\ndate: "
+                    + date + "\nmessage: " + message;
+        } else {
+            commit = commitEntry + "\n" + parentEntry + "\n" + "author: " + author + "\ndate: "
+                    + date + "\nmessage: " + message;
+        }
 
         var hash = hashString(commit);
         Files.write(Path.of("git/objects/" + hash), commit.getBytes());
         Files.writeString(Path.of("git/HEAD"), hash);
-        Files.writeString(Path.of("git/index"), "");
         return hash;
     }
 
