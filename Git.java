@@ -21,6 +21,17 @@ public class Git {
     // date: Thu Oct 09 11:56:39 PDT 2025
     // message: Add initial project files
 
+    public static void checkoutProcessor(String arg) throws IOException {
+        var indexFile = Files.readAllLines(Path.of("git/index"));
+        for (String string : indexFile) {
+            if (string.split(" ")[0].contains(arg)) {
+                checkout(arg);
+                return;
+            }
+        }
+        checkoutBranch(arg);
+    }
+
     public static void checkout(String commitHash) throws IOException {
         var commitLines = Files.readAllLines(Path.of("git/objects/" + commitHash));
         if (commitLines.size() == 0)
@@ -68,8 +79,11 @@ public class Git {
             throw new IOException();
         }
 
+        String currentBranchPath = Files.readString(Path.of("git/HEAD")).split(" ")[1];
+        String branchCommit = Files.readString(Path.of("git/" + currentBranchPath));
+
         var commitLines = Files.readAllLines(
-                Path.of("git/objects/" + head.get(0)));
+                Path.of("git/objects/" + branchCommit));
         if (commitLines.isEmpty()) {
             throw new IOException();
         }
@@ -171,9 +185,20 @@ public class Git {
         String hashFromIndex = createTreeFromIndex();
         // System.out.println("Root tree hash: " + hashFromIndex);
 
+        String currentHead = Files.readString(Path.of("git/HEAD")).split(" ")[1];
+        String currentBranch = null;
+        if (currentHead.length() > 1) {
+            currentBranch = currentHead;
+        }
+
         var parentEntry = "parent: ";
         var commitEntry = "tree: " + hashFromIndex;
+
         var parent = Files.readAllLines(Path.of("git/HEAD"));
+        if (currentBranch != null) {
+            parent = Files.readAllLines(Path.of("git/" + currentBranch));
+        }
+
         if (parent.size() > 0) {
             parentEntry += parent.get(0);
         } else {
@@ -183,7 +208,7 @@ public class Git {
         var date = LocalDate.now();
         String commit;
 
-        if (parentEntry == null){
+        if (parentEntry == null) {
             commit = commitEntry + "\n" + "author: " + author + "\ndate: "
                     + date + "\nmessage: " + message;
         } else {
@@ -193,7 +218,13 @@ public class Git {
 
         var hash = hashString(commit);
         Files.write(Path.of("git/objects/" + hash), commit.getBytes());
-        Files.writeString(Path.of("git/HEAD"), hash);
+
+        if (currentBranch == null) {
+            Files.writeString(Path.of("git/HEAD"), hash);
+        } else {
+            Files.writeString(Path.of("git/" + currentBranch), hash);
+        }
+
         return hash;
     }
 
@@ -214,12 +245,18 @@ public class Git {
         File objects = new File("./git/objects/");
         File head = new File("./git/HEAD");
         File index = new File("./git/index");
+        File refs = new File("./git/refs");
+        File heads = new File("./git/refs/heads");
+        File main = new File("./git/refs/heads/main");
 
         try {
-            if (!objects.mkdir() || !head.createNewFile() || !index.createNewFile()) {
+            if (!objects.mkdir() || !head.createNewFile() || !index.createNewFile() || !refs.mkdir() || !heads.mkdir()
+                    || !main.createNewFile()) {
                 System.out.println("Git Repository Already Exists");
                 return false;
             }
+            Files.writeString(Path.of("git/HEAD"), "ref: refs/heads/main");
+
         } catch (IOException e) {
             System.out.println("Failed to create Git Repository");
             return false;
@@ -544,6 +581,27 @@ public class Git {
 
         return collapseList(newList);
 
+    }
+
+    public static void createBranch(String name) throws IOException {
+        File branch = new File("git/refs/heads/" + name);
+        if (!branch.createNewFile()) {
+            throw new IllegalArgumentException();
+        }
+        String currentBranchPath = Files.readString(Path.of("git/HEAD")).split(" ")[1];
+        String branchCommit = Files.readString(Path.of("git/" + currentBranchPath));
+        Files.writeString(Path.of("git/refs/heads/" + name), branchCommit);
+
+    }
+
+    public static void checkoutBranch(String branch) throws IOException {
+        try {
+            createBranch(branch);
+        } catch (Exception e) {
+        }
+        String branchCommit = Files.readString(Path.of("git/refs/heads/" + branch));
+        checkout(branchCommit);
+        Files.writeString(Path.of("git/HEAD"), "ref: refs/heads/" + branch);
     }
 
 }

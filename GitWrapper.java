@@ -44,9 +44,9 @@ public class GitWrapper {
      * determine the "checked out" commit. Then it should update the working directory to match the
      * state of the repository at that commit by tracing through the root tree and all its children.
      *
-     * @param commitHash The SHA1 hash of the commit to check out.
+     * @param arg The SHA1 hash of the commit or the branch to check out.
      */
-    public void checkout(String commitHash) throws IOException {
-        Git.checkout(commitHash);
+    public void checkout(String arg) throws IOException {
+        Git.checkoutProcessor(arg);
     }
 }
