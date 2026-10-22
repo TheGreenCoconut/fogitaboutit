@@ -12,3 +12,9 @@ hashed for storing in objects (unimplemented)
 index unimplemented
 
 (GP-2.4): Updated Index File - index() function now stores hashes and their corresponding file names into index; needs logic to handle when to save to prevent duplication of index values
+
+
+Bugs Fixed for GP-5.1:
+- Index left blank after commits
+- Index would not update between checkouts
+- Commits left an empty space for parent
